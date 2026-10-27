@@ -26,6 +26,9 @@ GuestWork names the hub after its property.
   property has and reads it once you add the router's login in GuestWork. Either way only numbers leave your network:
   how many guests and household devices are connected, never a device's address or name. To stop reading UniFi
   through Home Assistant, turn it off in the hub's Settings in GuestWork.
+- **UniFi Protect cameras:** if Home Assistant has the UniFi Protect integration, whether each camera detected a
+  person, a vehicle, a dog barking or someone speaking, every 10 minutes. Never a picture, a clip or a sound. A camera
+  counts only after you say in GuestWork that it's outdoors; until then nothing it sees is kept.
 - Nothing listens. The hub only connects out, to GuestWork and to devices on this network.
 
 ## Updates
