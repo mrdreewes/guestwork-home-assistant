@@ -18,11 +18,14 @@ GuestWork names the hub after its property.
 
 ## What it reads
 
-- **Home Assistant:** only the thermostats and air conditioners, and the devices they belong to. Home Assistant gives
-  any app with access to its API full access. What limits GuestWork to the thermostats is the hub's own list of what
-  it may read and do.
-- **The router:** the hub finds which router the property has. It reads it only once you add the router's login in
-  GuestWork, to count who's on site.
+- **Home Assistant:** the thermostats and air conditioners and the devices they belong to; your energy monitor's power
+  and energy sensors; and, if Home Assistant has the UniFi Network integration, the list of devices connected to your
+  network, to count who's on site. Home Assistant gives any app with access to its API full access. What limits
+  GuestWork to these is the hub's own list of what it may read and do.
+- **The router:** with UniFi in Home Assistant there's nothing to add. Otherwise the hub finds which router the
+  property has and reads it once you add the router's login in GuestWork. Either way only numbers leave your network:
+  how many guests and household devices are connected, never a device's address or name. To stop reading UniFi
+  through Home Assistant, turn it off in the hub's Settings in GuestWork.
 - Nothing listens. The hub only connects out, to GuestWork and to devices on this network.
 
 ## Updates
