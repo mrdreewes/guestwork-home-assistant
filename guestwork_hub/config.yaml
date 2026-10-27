@@ -1,7 +1,7 @@
 name: GuestWork hub
-version: "1.0.0"
+version: "1.1.0"
 slug: guestwork_hub
-description: Your property's thermostats in GuestWork, from this Home Assistant. Start it, then open the link it shows.
+description: Your property's thermostats in GuestWork, from this Home Assistant. Install and start it; it links itself.
 url: https://guestwork.app
 arch:
   - aarch64
@@ -9,6 +9,8 @@ arch:
 startup: application
 boot: auto
 stage: experimental
+# Built for both chip types on GitHub (.github/workflows/build.yaml) and downloaded, not built on the box.
+image: ghcr.io/mrdreewes/guestwork-hub
 # Home Assistant's API, through the Supervisor: the hub reads and sets the thermostats, and nothing else in the house.
 homeassistant_api: true
 # The host's network: the hub sees the property's router and the devices on it. It listens on no port.

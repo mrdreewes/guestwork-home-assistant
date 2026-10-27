@@ -5,12 +5,16 @@ can see and set them beside your bookings.
 
 ## Linking it
 
-1. Start the app.
-2. A notification appears in Home Assistant with a link. Open it, sign in to GuestWork if asked, and tap **Link**.
+Start from GuestWork: **Devices → Hubs → Add to Home Assistant**, best on a phone with the Home Assistant app. Then
+**Add**, **Install** and **Start** here. The app links itself to the property you added it from, and a notification
+says so. The thermostats show up on GuestWork's HVAC page a minute later.
 
-That's all. GuestWork names the hub after its property. The thermostats show up on GuestWork's HVAC page a minute
-later. If the notification is gone, the link is also in this app's **Log** tab. A link lasts 30 minutes, and a new
-one replaces it.
+It links itself when it asks from the same internet connection the button was tapped on, within 30 minutes. Otherwise
+(the phone was on mobile data, or you installed it from here), the notification has a link instead: open it, sign in
+to GuestWork if asked, and tap **Link**. If the notification is gone, the link is also in this app's **Log** tab. A
+link lasts 30 minutes, and a new one replaces it.
+
+GuestWork names the hub after its property.
 
 ## What it reads
 

@@ -2,8 +2,10 @@
 /**
  * GuestWork hub, as a Home Assistant app: everything the app runs on its own. The hub itself comes from GuestWork.
  *
- *  1. Linked first. With no hub token yet, it asks GuestWork for a link and shows it as a Home Assistant notification
- *     (and in this app's log). Its owner opens it, taps Link in GuestWork, and the hub's token comes back here.
+ *  1. Linked first. With no hub token yet, it asks GuestWork to be linked. Just after its owner tapped "Add to Home
+ *     Assistant" in GuestWork from this same connection, GuestWork links it there and then. Otherwise it shows a link
+ *     as a Home Assistant notification (and in this app's log); its owner opens it and taps Link. Either way the hub's
+ *     token comes back here, and a notification says where it's linked.
  *  2. The hub, from GuestWork, to a linked hub only. The list of its files is checked against the release key in this
  *     app (release-key.pub) before anything is downloaded, and every file against the list. One that doesn't match,
  *     or a list signed by any other key, and nothing runs.
@@ -15,6 +17,8 @@
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
+import http from "node:http";
+import https from "node:https";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -115,6 +119,36 @@ export function boxMacs(sysNet = "/sys/class/net") {
   }
 }
 
+/**
+ * A JSON POST over one internet protocol only (4 or 6): GuestWork sees IPv4 and IPv6 as different addresses, and the
+ * phone that tapped "Add to Home Assistant" may have used either. Resolves to the answer, or null (no such route).
+ */
+export function postOnFamily(url, body, family, timeoutMs = 8_000) {
+  return new Promise((resolve) => {
+    const u = new URL(url);
+    const data = JSON.stringify(body);
+    const req = (u.protocol === "https:" ? https : http).request(
+      u,
+      { method: "POST", family, timeout: timeoutMs, headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) } },
+      (res) => {
+        let text = "";
+        res.setEncoding("utf8");
+        res.on("data", (c) => (text += c));
+        res.on("end", () => {
+          try {
+            resolve(res.statusCode === 200 ? JSON.parse(text) : null);
+          } catch {
+            resolve(null);
+          }
+        });
+      },
+    );
+    req.on("timeout", () => req.destroy());
+    req.on("error", () => resolve(null));
+    req.end(data);
+  });
+}
+
 /** The hub's settings for its run: this Home Assistant as its own, and where it lives. Pure. */
 export function hubEnv(env, { base, dataDir, dir, keyFile, haUrl, place, image, macs }) {
   const { SUPERVISOR_TOKEN: haToken, HASSIO_TOKEN: _old, ...rest } = env;
@@ -139,7 +173,7 @@ export function hubEnv(env, { base, dataDir, dir, keyFile, haUrl, place, image, 
  * run, its signed list and Home Assistant's name for the place. Waits as long as it takes: for GuestWork, for the
  * link to be opened, for a list that runs.
  */
-export async function prepare({ base, dataDir, pem, haUrl, haToken, fetchImpl = fetch, log = console.log, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), now = Date.now }) {
+export async function prepare({ base, dataDir, pem, haUrl, haToken, fetchImpl = fetch, familyPost = postOnFamily, log = console.log, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), now = Date.now }) {
   const hubFile = path.join(dataDir, "hub.json");
   const root = path.join(dataDir, "install");
   const ha = (p, init = {}) => fetchImpl(`${haUrl}${p}`, { ...init, headers: { Authorization: `Bearer ${haToken}`, "Content-Type": "application/json" }, signal: AbortSignal.timeout(10_000) });
@@ -185,12 +219,26 @@ export async function prepare({ base, dataDir, pem, haUrl, haToken, fetchImpl = 
         continue;
       }
       const typeAt = l.typeAt || `${base}/hubs/link`;
-      log(`To link this hub, open ${l.url} (or ${typeAt} and type ${l.userCode}).`);
-      await notify("create", {
-        notification_id: NOTIFICATION_ID,
-        title: "Link this hub to GuestWork",
-        message: `[Open this link](${l.url}) and tap **Link** in GuestWork.\n\nOr go to ${typeAt} and type **${l.userCode}**. It lasts 30 minutes; a new one replaces it here.`,
-      }).catch((e) => log(`Couldn't show the link in Home Assistant (${e.message}): it's above.`));
+      // The same ask over IPv6 and IPv4 too, with its device code, so a tap over either is this box's.
+      for (const family of l.approved ? [] : [6, 4]) {
+        const also = await familyPost(`${base}/api/hub/link`, { hint: { kind: "home_assistant", place }, deviceCode: l.deviceCode }, family);
+        if (also?.approved) {
+          l.approved = true;
+          l.place = also.place ?? l.place;
+          break;
+        }
+      }
+      if (l.approved) {
+        // Its owner tapped "Add to Home Assistant" from this connection: GuestWork linked it already, nothing to open.
+        log(`GuestWork linked this hub at ${l.place || "its property"} from the tap in GuestWork: collecting its token.`);
+      } else {
+        log(`To link this hub, open ${l.url} (or ${typeAt} and type ${l.userCode}).`);
+        await notify("create", {
+          notification_id: NOTIFICATION_ID,
+          title: "Link this hub to GuestWork",
+          message: `[Open this link](${l.url}) and tap **Link** in GuestWork.\n\nOr go to ${typeAt} and type **${l.userCode}**. It lasts 30 minutes; a new one replaces it here.`,
+        }).catch((e) => log(`Couldn't show the link in Home Assistant (${e.message}): it's above.`));
+      }
       const endsAt = now() + (Number(l.expiresInSec) || 1800) * 1000;
       while (now() < endsAt) {
         await sleep(Math.max(2, Number(l.pollSec) || 5) * 1000);
@@ -201,7 +249,12 @@ export async function prepare({ base, dataDir, pem, haUrl, haToken, fetchImpl = 
           writePrivate(hubFile, JSON.stringify({ token: c.token, hubId: c.hubId, pairedAt: new Date(now()).toISOString() }));
           // What was waiting to be sent belongs to the old link, which may have been another property.
           fs.rmSync(path.join(dataDir, "queue.jsonl"), { force: true });
-          await notify("dismiss", { notification_id: NOTIFICATION_ID }).catch(() => {});
+          // The same notification, now saying where it's linked (it replaces the link, if one was shown).
+          await notify("create", {
+            notification_id: NOTIFICATION_ID,
+            title: "Linked to GuestWork",
+            message: `This Home Assistant is linked to GuestWork${c.name ? ` as **${c.name}**` : ""}. Its thermostats show in GuestWork in a minute.\n\nNot right? Unlink it in GuestWork, under Devices → Hubs.`,
+          }).catch(() => {});
           log(`Linked as hub ${c.hubId}${c.name ? `, "${c.name}"` : ""}.`);
           return c.token;
         }

@@ -9,3 +9,7 @@ COPY start.mjs release-key.pub ./
 # IPv4 first, and no racing of addresses: a short Wi-Fi blip then rides on the network's own retries.
 ENV NODE_OPTIONS="--dns-result-order=ipv4first --no-network-family-autoselection"
 CMD ["node", "/opt/guestwork/start.mjs"]
+LABEL \
+  org.opencontainers.image.title="GuestWork hub" \
+  org.opencontainers.image.description="GuestWork's hub as a Home Assistant app: the property's thermostats in GuestWork." \
+  org.opencontainers.image.source="https://github.com/mrdreewes/guestwork-home-assistant"
