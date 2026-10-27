@@ -38,13 +38,18 @@ jobs:
 
       - name: Normalize app information
         id: normalize
+        # The info action's values come JSON-quoted ("GuestWork hub"): each is assigned first, which unquotes it, as
+        # Home Assistant's example does. ⚠️ Never put one inside another pair of quotes (an apostrophe broke 1.1.0's).
         run: |
           image=${{ steps.info.outputs.image }}
           echo "image_name=${image##*/}" >> "$GITHUB_OUTPUT"
           echo "registry_prefix=${image%/*}" >> "$GITHUB_OUTPUT"
-          echo "version=${{ steps.info.outputs.version }}" >> "$GITHUB_OUTPUT"
-          echo "name=${{ steps.info.outputs.name }}" >> "$GITHUB_OUTPUT"
-          echo "description=${{ steps.info.outputs.description }}" >> "$GITHUB_OUTPUT"
+          version=${{ steps.info.outputs.version }}
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          name=${{ steps.info.outputs.name }}
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          description=${{ steps.info.outputs.description }}
+          echo "description=${description}" >> "$GITHUB_OUTPUT"
           url=${{ steps.info.outputs.url }}
           if [[ -n "$url" && "$url" != "null" ]]; then
             echo "url=${url}" >> "$GITHUB_OUTPUT"
